@@ -2,7 +2,7 @@ import logging
 
 import requests
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from config import BOT_PUBLIC_URL
 from handlers.dispatcher import dispatch
@@ -60,13 +60,23 @@ async def bitrix_install(request: Request) -> JSONResponse:
     else:
         form = await request.form()
         payload = dict(form)
-        access_token = payload.get("auth[access_token]", "") or payload.get("AUTH_ID", "")
-        domain = payload.get("auth[domain]", "") or payload.get("DOMAIN", "")
+        access_token = payload.get("AUTH_ID", "") or payload.get("auth[access_token]", "")
+        domain = payload.get("DOMAIN", "") or payload.get("auth[domain]", "")
 
-    logger.info("Install payload keys: %s", list(payload.keys()) if isinstance(payload, dict) else payload)
+    logger.info("Install form payload: %s", payload)
+    logger.info("Install query params: %s", dict(request.query_params))
 
+    # DOMAIN usually comes in query params
     if not domain:
         domain = request.query_params.get("DOMAIN", "")
+
+    # Fallback to SERVER_ENDPOINT from form body
+    if not domain:
+        server_endpoint = payload.get("SERVER_ENDPOINT", "") if isinstance(payload, dict) else ""
+        if server_endpoint:
+            domain = server_endpoint.replace("https://", "").replace("http://", "").rstrip("/")
+
+    logger.info("Resolved auth: access_token=%s, domain=%s", access_token[:8] + "..." if access_token else "NONE", domain)
 
     if not access_token or not domain:
         logger.error("Missing auth data. access_token=%s, domain=%s", bool(access_token), domain)
@@ -81,6 +91,8 @@ async def bitrix_install(request: Request) -> JSONResponse:
         "CODE": "crocodile_bot",
         "TYPE": "B",
         "EVENT_MESSAGE_ADD": event_url,
+        "EVENT_WELCOME_MESSAGE": event_url,
+        "EVENT_BOT_DELETE": event_url,
         "PROPERTIES": {
             "NAME": "Crocodile",
             "LAST_NAME": "Bot",
@@ -98,7 +110,11 @@ async def bitrix_install(request: Request) -> JSONResponse:
     else:
         logger.error("Bot registration failed: %s", result)
 
-    return JSONResponse({"status": "installed", "bot_id": bot_id})
+    if bot_id:
+        return HTMLResponse("<html><body><h3>Crocodile Bot installed successfully!</h3><p>Add the bot to a group chat to start playing.</p></body></html>")
+    else:
+        error_msg = result.get("error_description", result.get("error", "Unknown error"))
+        return HTMLResponse(f"<html><body><h3>Installation failed</h3><p>{error_msg}</p></body></html>", status_code=500)
 
 
 @app.get("/health")
