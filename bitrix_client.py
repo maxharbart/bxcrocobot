@@ -11,10 +11,11 @@ def _call(method: str, params: dict | None = None) -> dict:
     url = f"{BITRIX_WEBHOOK_URL}/{method}"
     try:
         resp = requests.post(url, json=params or {}, timeout=10)
+        logger.info("Bitrix API %s -> %s: %s", method, resp.status_code, resp.text[:500])
         resp.raise_for_status()
         return resp.json()
     except Exception:
-        logger.exception("Bitrix API call failed: %s", method)
+        logger.exception("Bitrix API call failed: %s params=%s", method, params)
         return {}
 
 
