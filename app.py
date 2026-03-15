@@ -4,6 +4,7 @@ import requests
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
+from bitrix_client import set_auth
 from config import BOT_PUBLIC_URL
 from handlers.dispatcher import dispatch
 from services.word_service import load_words
@@ -14,10 +15,11 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Bitrix24 Crocodile Bot")
 
 
-def _parse_form_nested(form: dict) -> tuple[str, dict]:
+def _parse_form_nested(form: dict) -> tuple[str, dict, dict]:
     """Parse Bitrix form-encoded payload with nested keys like data[PARAMS][MESSAGE]."""
     event = form.get("event", "")
     data = {}
+    auth = {}
     for key, value in form.items():
         if key.startswith("data["):
             parts = key.replace("data[", "").rstrip("]").split("][")
@@ -25,7 +27,10 @@ def _parse_form_nested(form: dict) -> tuple[str, dict]:
             for p in parts[:-1]:
                 d = d.setdefault(p, {})
             d[parts[-1]] = value
-    return event, data
+        elif key.startswith("auth["):
+            auth_key = key.replace("auth[", "").rstrip("]")
+            auth[auth_key] = value
+    return event, data, auth
 
 
 @app.on_event("startup")
@@ -41,11 +46,17 @@ async def bitrix_event(request: Request) -> JSONResponse:
         payload = await request.json()
         event = payload.get("event", "")
         data = payload.get("data", {})
+        auth = payload.get("auth", {})
     else:
         form = await request.form()
-        event, data = _parse_form_nested(dict(form))
+        event, data, auth = _parse_form_nested(dict(form))
 
-    logger.info("Event: %s, data keys: %s", event, list(data.keys()))
+    logger.info("Event: %s, data keys: %s, auth keys: %s", event, list(data.keys()), list(auth.keys()))
+
+    # Update bot auth token from event
+    if auth.get("access_token") and auth.get("domain"):
+        set_auth(auth["access_token"], auth["domain"])
+
     dispatch(event, data)
     return JSONResponse({"status": "ok"})
 

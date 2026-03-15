@@ -2,15 +2,30 @@ import logging
 
 import requests
 
-from config import BITRIX_WEBHOOK_URL
-
 logger = logging.getLogger(__name__)
+
+# Stored from the most recent event — the bot's OAuth token
+_auth: dict = {"access_token": "", "domain": ""}
+
+
+def set_auth(access_token: str, domain: str) -> None:
+    _auth["access_token"] = access_token
+    _auth["domain"] = domain
 
 
 def _call(method: str, params: dict | None = None) -> dict:
-    url = f"{BITRIX_WEBHOOK_URL}/{method}"
+    domain = _auth["domain"]
+    token = _auth["access_token"]
+    if not domain or not token:
+        logger.error("No auth token available for Bitrix API call: %s", method)
+        return {}
+
+    url = f"https://{domain}/rest/{method}"
+    payload = dict(params or {})
+    payload["auth"] = token
+
     try:
-        resp = requests.post(url, json=params or {}, timeout=10)
+        resp = requests.post(url, json=payload, timeout=10)
         logger.info("Bitrix API %s -> %s: %s", method, resp.status_code, resp.text[:500])
         resp.raise_for_status()
         return resp.json()
