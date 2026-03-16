@@ -48,6 +48,14 @@ def send_chat_message(chat_id: int, text: str) -> dict:
 
 
 def send_private_message(user_id: int, text: str) -> dict:
+    # Try im.notify.personal — works with webhooks and sends a private notification
+    result = _call("im.notify.personal.add", {
+        "USER_ID": user_id,
+        "MESSAGE": text,
+    })
+    if result.get("result"):
+        return result
+    # Fallback to DM
     return _call("im.message.add", {
         "DIALOG_ID": str(user_id),
         "MESSAGE": text,
