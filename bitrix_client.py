@@ -6,6 +6,7 @@ import requests
 logger = logging.getLogger(__name__)
 
 BITRIX_WEBHOOK_URL = os.getenv("BITRIX_WEBHOOK_URL", "").rstrip("/")
+BITRIX_CLIENT_ID = os.getenv("BITRIX_CLIENT_ID", "")
 
 _bot_id: int = int(os.getenv("BITRIX_BOT_ID", "0"))
 
@@ -22,6 +23,8 @@ def _call(method: str, params: dict | None = None) -> dict:
 
     url = f"{BITRIX_WEBHOOK_URL}/{method}"
     payload = dict(params or {})
+    if BITRIX_CLIENT_ID:
+        payload["CLIENT_ID"] = BITRIX_CLIENT_ID
 
     try:
         resp = requests.post(url, json=payload, timeout=10)
@@ -29,7 +32,7 @@ def _call(method: str, params: dict | None = None) -> dict:
         resp.raise_for_status()
         return resp.json()
     except Exception:
-        logger.exception("Bitrix API call failed: %s params=%s", method, params)
+        logger.exception("Bitrix API call failed: %s", method)
         return {}
 
 
@@ -38,14 +41,20 @@ def send_chat_message(chat_id: int, text: str, keyboard: list | None = None) -> 
         "DIALOG_ID": f"chat{chat_id}",
         "MESSAGE": text,
     }
-    if _bot_id:
-        params["BOT_ID"] = _bot_id
-        method = "imbot.message.add"
-    else:
-        method = "im.message.add"
     if keyboard:
         params["KEYBOARD"] = keyboard
-    return _call(method, params)
+
+    # Try imbot.message.add first (sends as bot)
+    if _bot_id:
+        params["BOT_ID"] = _bot_id
+        result = _call("imbot.message.add", params)
+        if result.get("result"):
+            return result
+        logger.warning("imbot.message.add failed, falling back to im.message.add")
+        params.pop("BOT_ID", None)
+
+    # Fallback to im.message.add (sends as webhook user)
+    return _call("im.message.add", params)
 
 
 def send_private_message(user_id: int, text: str, keyboard: list | None = None) -> dict:
