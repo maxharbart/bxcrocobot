@@ -1,9 +1,7 @@
-import json
-
 import redis
 
 from config import REDIS_URL
-from game.models import GameState
+from game.models import ChatStats, GameState
 
 
 _pool = redis.ConnectionPool.from_url(REDIS_URL, decode_responses=True)
@@ -36,3 +34,14 @@ def set_timer(chat_id: int, ttl: int) -> None:
 
 def timer_active(chat_id: int) -> bool:
     return _conn().exists(f"timer:{chat_id}") == 1
+
+
+def get_stats(chat_id: int) -> ChatStats:
+    data = _conn().get(f"stats:{chat_id}")
+    if data is None:
+        return ChatStats()
+    return ChatStats.model_validate_json(data)
+
+
+def save_stats(chat_id: int, stats: ChatStats) -> None:
+    _conn().set(f"stats:{chat_id}", stats.model_dump_json())

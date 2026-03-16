@@ -4,7 +4,7 @@ import requests
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 
-from bitrix_client import set_auth
+from bitrix_client import set_auth, set_bot_id
 from config import BOT_PUBLIC_URL
 from handlers.dispatcher import dispatch
 from services.word_service import load_words
@@ -41,21 +41,47 @@ async def startup() -> None:
 
 @app.post("/bitrix/events")
 async def bitrix_event(request: Request) -> JSONResponse:
+    # Log raw body for debugging
+    body = await request.body()
+    logger.info("RAW EVENT BODY: %s", body[:2000])
+
     content_type = request.headers.get("content-type", "")
     if "application/json" in content_type:
-        payload = await request.json()
+        import json
+        payload = json.loads(body)
         event = payload.get("event", "")
         data = payload.get("data", {})
         auth = payload.get("auth", {})
     else:
-        form = await request.form()
-        event, data, auth = _parse_form_nested(dict(form))
+        from urllib.parse import parse_qs
+        parsed = parse_qs(body.decode("utf-8", errors="replace"))
+        # parse_qs returns lists, flatten to single values
+        flat = {k: v[0] if len(v) == 1 else v for k, v in parsed.items()}
+        logger.info("PARSED FORM FIELDS: %s", flat)
+        event = flat.get("event", "")
+        data = {}
+        auth = {}
+        for key, value in flat.items():
+            if key.startswith("data["):
+                parts = key.replace("data[", "").rstrip("]").split("][")
+                d = data
+                for p in parts[:-1]:
+                    d = d.setdefault(p, {})
+                d[parts[-1]] = value
+            elif key.startswith("auth["):
+                auth_key = key.replace("auth[", "").rstrip("]")
+                auth[auth_key] = value
 
-    logger.info("Event: %s, data keys: %s, auth keys: %s", event, list(data.keys()), list(auth.keys()))
+    logger.info("Event: %s, data: %s, auth: %s", event, data, {k: v[:8] + "..." if k == "access_token" else v for k, v in auth.items()})
 
     # Update bot auth token from event
     if auth.get("access_token") and auth.get("domain"):
         set_auth(auth["access_token"], auth["domain"])
+
+    # Extract bot ID from event data
+    bot_data = data.get("BOT", {})
+    if isinstance(bot_data, dict) and bot_data.get("BOT_ID"):
+        set_bot_id(int(bot_data["BOT_ID"]))
 
     dispatch(event, data)
     return JSONResponse({"status": "ok"})

@@ -28,8 +28,9 @@ def dispatch(event: str, data: dict) -> None:
         if handler:
             reply = handler(chat_id, user_id)
         else:
-            reply = f"Unknown command: {cmd}"
-        send_chat_message(chat_id, reply)
+            reply = f"❓ Неизвестная команда: {cmd}"
+        if reply:
+            send_chat_message(chat_id, reply)
     else:
         result = check_guess(chat_id, user_id, message)
         if result:

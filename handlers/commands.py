@@ -6,6 +6,7 @@ from game.manager import (
     remove_player,
     start_round,
     get_scores,
+    get_chat_stats,
     skip_word,
     stop_game,
 )
@@ -31,6 +32,10 @@ def _cmd_score(chat_id: int, user_id: int) -> str:
     return get_scores(chat_id)
 
 
+def _cmd_stats(chat_id: int, user_id: int) -> str:
+    return get_chat_stats(chat_id)
+
+
 def _cmd_skip(chat_id: int, user_id: int) -> str:
     return skip_word(chat_id, user_id)
 
@@ -45,6 +50,7 @@ COMMAND_HANDLERS: dict[str, Callable[[int, int], str]] = {
     "/leave": _cmd_leave,
     "/start": _cmd_start,
     "/score": _cmd_score,
+    "/stats": _cmd_stats,
     "/skip": _cmd_skip,
     "/stop": _cmd_stop,
 }
