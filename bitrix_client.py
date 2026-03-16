@@ -49,6 +49,13 @@ def get_user_info(user_id: int) -> dict:
 
 
 def get_chat_users(chat_id: int) -> list[int]:
-    result = _call("im.chat.user.list", {"CHAT_ID": chat_id})
+    """Get non-bot user IDs from a chat."""
+    result = _call("im.dialog.users.list", {"DIALOG_ID": f"chat{chat_id}"})
     users = result.get("result", [])
-    return [int(uid) for uid in users if uid]
+    if not users:
+        # Fallback to im.chat.user.list
+        result = _call("im.chat.user.list", {"CHAT_ID": chat_id})
+        users = result.get("result", [])
+        return [int(uid) for uid in users if uid]
+    # im.dialog.users.list returns user objects with bot flag
+    return [int(u["id"]) for u in users if not u.get("bot", False)]
