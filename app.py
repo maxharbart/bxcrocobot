@@ -3,7 +3,6 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from bitrix_client import set_bot_id
 from handlers.dispatcher import dispatch
 from services.word_service import load_words
 
@@ -38,15 +37,6 @@ async def bitrix_event(request: Request) -> JSONResponse:
             d[parts[-1]] = value
 
     logger.info("Event: %s", event)
-
-    # Extract bot ID — BOT is nested as {bot_id: {BOT_ID: ..., ...}}
-    bot_data = data.get("BOT", {})
-    if isinstance(bot_data, dict):
-        for key, val in bot_data.items():
-            if isinstance(val, dict) and val.get("BOT_ID"):
-                set_bot_id(int(val["BOT_ID"]))
-                break
-
     dispatch(event, data)
     return JSONResponse({"status": "ok"})
 
