@@ -46,3 +46,9 @@ def get_user_info(user_id: int) -> dict:
     if users:
         return users[0]
     return {}
+
+
+def get_chat_users(chat_id: int) -> list[int]:
+    result = _call("im.chat.user.list", {"CHAT_ID": chat_id})
+    users = result.get("result", [])
+    return [int(uid) for uid in users if uid]

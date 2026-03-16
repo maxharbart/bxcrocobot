@@ -1,6 +1,6 @@
 import random
 
-from bitrix_client import send_chat_message, send_private_message
+from bitrix_client import send_chat_message, send_private_message, get_chat_users
 from game.models import ChatStats, GameState, PlayerStats
 from services.word_service import get_random_word
 from services.timer_service import start_timer, cancel_timer
@@ -12,13 +12,22 @@ def create_game(chat_id: int) -> str:
     existing = get_game(chat_id)
     if existing and existing.status not in ("finished", "waiting") and existing.players:
         return "🐊 Игра уже идёт! Используй /stop чтобы завершить."
+
+    # Get all chat members and auto-join them
+    members = get_chat_users(chat_id)
     state = GameState()
+    state.players = members
+    for uid in members:
+        state.scores[str(uid)] = 0
     save_game(chat_id, state)
+
+    names = [get_user_name(uid) for uid in members]
+    player_list = ", ".join(names) if names else "—"
     return (
-        "🐊 [B]Крокодил![/B]\n\n"
-        "Новая игра создана!\n"
-        "Присоединиться — /join\n"
-        "Начать игру — /start"
+        f"🐊 [B]Крокодил![/B]\n\n"
+        f"Все участники чата в игре ({len(members)}):\n"
+        f"{player_list}\n\n"
+        f"Начать игру — /start"
     )
 
 
