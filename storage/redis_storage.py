@@ -45,3 +45,16 @@ def get_stats(chat_id: int) -> ChatStats:
 
 def save_stats(chat_id: int, stats: ChatStats) -> None:
     _conn().set(f"stats:{chat_id}", stats.model_dump_json())
+
+
+def save_app_auth(data: dict) -> None:
+    import json
+    _conn().set("app_auth", json.dumps(data))
+
+
+def get_app_auth() -> dict | None:
+    import json
+    data = _conn().get("app_auth")
+    if data is None:
+        return None
+    return json.loads(data)
