@@ -33,26 +33,31 @@ def _call(method: str, params: dict | None = None) -> dict:
         return {}
 
 
-def send_chat_message(chat_id: int, text: str) -> dict:
-    if _bot_id:
-        return _call("imbot.message.add", {
-            "BOT_ID": _bot_id,
-            "DIALOG_ID": f"chat{chat_id}",
-            "MESSAGE": text,
-        })
-    return _call("im.message.add", {
+def send_chat_message(chat_id: int, text: str, keyboard: list | None = None) -> dict:
+    params = {
         "DIALOG_ID": f"chat{chat_id}",
         "MESSAGE": text,
-    })
-
-
-def send_private_message(user_id: int, text: str) -> dict:
+    }
     if _bot_id:
-        result = _call("imbot.message.add", {
+        params["BOT_ID"] = _bot_id
+        method = "imbot.message.add"
+    else:
+        method = "im.message.add"
+    if keyboard:
+        params["KEYBOARD"] = keyboard
+    return _call(method, params)
+
+
+def send_private_message(user_id: int, text: str, keyboard: list | None = None) -> dict:
+    if _bot_id:
+        params = {
             "BOT_ID": _bot_id,
             "DIALOG_ID": str(user_id),
             "MESSAGE": text,
-        })
+        }
+        if keyboard:
+            params["KEYBOARD"] = keyboard
+        result = _call("imbot.message.add", params)
         if result.get("result"):
             return result
     # Fallback to notification

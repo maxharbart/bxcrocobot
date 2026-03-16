@@ -1,10 +1,19 @@
 import logging
 
 from handlers.commands import COMMAND_HANDLERS
-from game.manager import check_guess
+from game.manager import check_guess, Reply
 from bitrix_client import send_chat_message
 
 logger = logging.getLogger(__name__)
+
+
+def _send_reply(chat_id: int, reply: Reply | str | None) -> None:
+    if reply is None:
+        return
+    if isinstance(reply, str):
+        send_chat_message(chat_id, reply)
+    elif isinstance(reply, Reply):
+        send_chat_message(chat_id, reply.text, keyboard=reply.keyboard)
 
 
 def dispatch(event: str, data: dict) -> None:
@@ -23,15 +32,15 @@ def dispatch(event: str, data: dict) -> None:
     message = message.strip()
 
     if message.startswith("/"):
-        cmd = message.split()[0].lower()
+        parts = message.split(maxsplit=1)
+        cmd = parts[0].lower()
+        args = parts[1] if len(parts) > 1 else ""
         handler = COMMAND_HANDLERS.get(cmd)
         if handler:
-            reply = handler(chat_id, user_id)
+            reply = handler(chat_id, user_id, args)
         else:
-            reply = f"❓ Неизвестная команда: {cmd}"
-        if reply:
-            send_chat_message(chat_id, reply)
+            reply = Reply(f"❓ Неизвестная команда: {cmd}")
+        _send_reply(chat_id, reply)
     else:
         result = check_guess(chat_id, user_id, message)
-        if result:
-            send_chat_message(chat_id, result)
+        _send_reply(chat_id, result)
