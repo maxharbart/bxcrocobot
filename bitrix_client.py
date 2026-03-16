@@ -44,7 +44,7 @@ def send_chat_message(chat_id: int, text: str, keyboard: list | None = None) -> 
     if keyboard:
         params["KEYBOARD"] = keyboard
 
-    # Try imbot.message.add first (sends as bot)
+    # Try imbot.message.add first (sends as bot, supports keyboard)
     if _bot_id:
         params["BOT_ID"] = _bot_id
         result = _call("imbot.message.add", params)
@@ -52,8 +52,9 @@ def send_chat_message(chat_id: int, text: str, keyboard: list | None = None) -> 
             return result
         logger.warning("imbot.message.add failed, falling back to im.message.add")
         params.pop("BOT_ID", None)
+        params.pop("KEYBOARD", None)  # im.message.add doesn't support keyboards
 
-    # Fallback to im.message.add (sends as webhook user)
+    # Fallback to im.message.add (sends as webhook user, no keyboard)
     return _call("im.message.add", params)
 
 
