@@ -25,7 +25,7 @@ def _cmd_leave(chat_id: int, user_id: int) -> str:
 
 
 def _cmd_start(chat_id: int, user_id: int) -> str:
-    return start_round(chat_id)
+    return start_round(chat_id, user_id)
 
 
 def _cmd_score(chat_id: int, user_id: int) -> str:

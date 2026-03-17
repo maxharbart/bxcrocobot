@@ -59,7 +59,7 @@ def remove_player(chat_id: int, user_id: int) -> str:
     return f"👋 [B]{name}[/B] вышел из игры."
 
 
-def start_round(chat_id: int) -> str:
+def start_round(chat_id: int, user_id: int = 0) -> str:
     state = get_game(chat_id)
     if state is None:
         return "❌ Игра не найдена. Создай новую — /crocodile."
@@ -70,7 +70,7 @@ def start_round(chat_id: int) -> str:
 
     state.status = "active"
     state.round += 1
-    state.drawer = random.choice(state.players)
+    state.drawer = user_id if user_id and user_id in state.players else random.choice(state.players)
     state.word = get_random_word()
     save_game(chat_id, state)
 
